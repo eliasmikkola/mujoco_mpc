@@ -1,30 +1,46 @@
 <mujoco model="Humanoid Skateboard Steer">
   <include file="../../common.xml"/>
   <include file="../humanoid.xml" />
-  <size memory="400K"/>
+  <include file="./skateboard.xml" />
+  <size memory="8M"/>
+
+  <compiler autolimits="true" />
 
   <custom>
-    <text name="task_transition" data="Jump|Kick Spin|Spin Kick|Cartwheel (1)|Crouch Flip|Cartwheel (2)|Monkey Flip|Dance|Run|Walk" />
-    <numeric name="sampling_representation" data="2" />
+    <text name="task_transition" data="Push" />
+    <numeric name="derivative_skip" data="1" />
     <numeric name="agent_planner" data="2" />
-    <numeric name="agent_horizon" data="0.5" />
-    <numeric name="agent_timestep" data="0.005" />
-    <numeric name="sampling_spline_points" data="16" />
-    <numeric name="sampling_exploration" data="0.15" />
-    <numeric name="sampling_trajectories" data="32" />
+    <numeric name="agent_horizon" data="0.45" />
+    <numeric name="agent_integrator" data="3" />
+    <numeric name="agent_timestep" data="0.0125" />
+    <numeric name="sampling_spline_points" data="8" />
+    <numeric name="sampling_exploration" data="0.05" />
+    <numeric name="sampling_representation" data="1" />
     <numeric name="gradient_spline_points" data="5" />
-    <numeric name="ilqg_num_rollouts" data="16" />
+    <numeric name="ilqg_num_rollouts" data="8" />
     <numeric name="ilqg_regularization_type" data="1" />
-    <numeric name="ilqg_representation" data="2" />
+    <numeric name="ilqg_representation" data="1" />
+    <numeric name="residual_Tilt ratio" data="0.0 0 1.0" />
+    <numeric name="residual_Heading clamp l" data="0.01 -3.14 3.14" />
+    <numeric name="residual_Heading clamp k" data="1 -3.14 3.14" />
+    <numeric name="residual_Velocity" data="2.5 -10 10" />
+    <numeric name="residual_Amplitude_z" data="0.19 -1 1"/>
+    <numeric name="residual_Amplitude_y" data="0.21 -1 1"/>
+    <numeric name="residual_Frequency_z" data="1.00 -3 3"/>
+    <numeric name="residual_Frequency_y" data="1.00 -3 3"/>
+    <numeric name="residual_Phase_z" data="1.0 -1 1"/>
+    <numeric name="residual_Phase_y" data="1.0 -1 1"/>
+    <numeric name="residual_Offset_z" data="0.00 -1 1"/>
+    <numeric name="residual_Offset_y" data="0.0 -1 1"/>
   </custom>
 
   <default>
     <default class="mocap_site">
-      <site type="sphere" size="0.027" rgba="0 0 1 1" group="3" material="target"/>
+      <site type="sphere" size="0.027" rgba="1 0 0 1" group="3" material="target"/>
     </default>
   </default>
 
-  <option timestep="0.005"/>
+  <option timestep="0.0125" integrator="implicitfast" cone="elliptic" />
 
   <worldbody>
     <body name="mocap[pelvis]" mocap="true">
@@ -75,34 +91,69 @@
     <body name="mocap[rhip]" mocap="true">
       <site name="mocap[rhip]" class="mocap_site" />
     </body>
+    <body name="goal" mocap="true" >
+      <geom type="cylinder" size="0.5 0.001" contype="0" conaffinity="0" rgba="1 0 0 0.8" group="2"/>
+    </body>
   </worldbody>
 
   <sensor>
     <user name="Joint Vel." dim="21" user="0 0.001 0.0 0.01" />
-    <user name="Control" dim="21" user="3 0.1 0 1.0 0.3" />
+    <user name="Control" dim="21" user="3 0.3 0 1.0 0.3" />
 
-    <user name="Pos[avg]" dim="3" user="6 100.0 0.0 100.0 0.1" />
-    <user name="Pos[pelvis]" dim="3" user="6 30.0 0.0 100.0 0.1" />
-    <user name="Pos[head]" dim="3" user="6 0.0 0.0 100.0 0.1" />
-    <user name="Pos[toe]" dim="6" user="7 30.0 0.0 100.0 0.2 4" />
-    <user name="Pos[heel]" dim="6" user="7 30.0 0.0 100.0 0.2 4" />
-    <user name="Pos[knee]" dim="6" user="6 30.0 0.0 100.0 0.1" />
-    <user name="Pos[hand]" dim="6" user="6 30.0 0.0 100.0 0.1" />
-    <user name="Pos[elbow]" dim="6" user="7 30.0 0.0 100.0 0.2 4" />
-    <user name="Pos[shoulder]" dim="6" user="6 30.0 0.0 100.0 0.1" />
-    <user name="Pos[hip]" dim="6" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[avg-xy]" dim="2" user="6 100.0 0.0 100.0 0.1" />
+    <user name="Pos[avg-z]" dim="1" user="6 100.0 0.0 100.0 0.1" />
+    <user name="Pos[pelvis-xy]" dim="2" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[pelvis-z]" dim="1" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[ltoe]" dim="3" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[rtoe]" dim="3" user="6 100.0 0.0 100.0 0.1" />
+    <user name="Pos[lheel]" dim="3" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[rheel]" dim="3" user="6 100.0 0.0 100.0 0.1" />
+    <user name="Pos[hand]" dim="6" user="6 0.0 0.0 100.0 0.1" />
+    <user name="Pos[lshoulder-xy]" dim="2" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[lshoulder-z]" dim="1" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[rshoulder-xy]" dim="2" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[rshoulder-z]" dim="1" user="6 30.0 0.0 100.0 0.1" />
+    <user name="Pos[lhip-xy]" dim="2" user="6 0.0 0.0 100.0 0.1" />
+    <user name="Pos[lhip-z]" dim="1" user="6 0.0 0.0 100.0 0.1" />
+    <user name="Pos[rhip-xy]" dim="2" user="6 0.0 0.0 100.0 0.1" />
+    <user name="Pos[rhip-z]" dim="1" user="6 0.0 0.0 100.0 0.1" />
 
-    <user name="Vel[root]" dim="3" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[head]" dim="3" user="6 0.0 0 1.0 0.3" />
-    <user name="Vel[toe]" dim="6" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[heel]" dim="6" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[knee]" dim="6" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[hand]" dim="6" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[elbow]" dim="6" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[shoulder]" dim="6" user="6 0.1 0 1.0 0.3" />
-    <user name="Vel[hip]" dim="6" user="6 0.1 0 1.0 0.3" />
+    <user name="Vel[root]" dim="3" user="6 0.0 0 1.0 0.3" />
+    <user name="Vel[toe]" dim="6" user="6 0.0 0 1.0 0.3" />
+    <user name="Vel[heel]" dim="6" user="6 0.0 0 1.0 0.3" />
+    <user name="Vel[hand]" dim="6" user="6 0.0 0 1.0 0.3" />
+    <user name="Vel[shoulder]" dim="6" user="6 0.0 0 1.0 0.3" />
+    <user name="Vel[hip]" dim="6" user="6 0.0 0 1.0 0.3" />
+
+    <!-- user sensors for feet on skateboard  -->
+    <user name="Right Foot on Board xy" dim="2" user="2 0 0.0 100.0 0.05" />
+    <user name="Right Foot on Board z" dim="1" user="2 0 0.0 100.0 0.05" />
+    <user name="Left Foot on Board xy" dim="2" user="2 0 0.0 100.0 0.05" />
+    <user name="Left Foot on Board z" dim="1" user="2 0 0.0 100.0 0.05" />
+    
+    <!-- user sensors for board heading and velocity -->
+    <user name="Board Heading" dim="2" user="6 0 0 100 0.01" />
+    <user name="Board Velocity Local x" dim="1" user="8 0 0 100.0 0.01" />
+    <user name="Board Velocity Local y" dim="1" user="0 10 0 100" />
+    <user name="Board Velocity Global z" dim="1" user="0 0 0 100" />
+    <!-- user sensors for left foot contact force on ground -->
+    <user name="Left Foot Force" dim="1" user="6 20 0.0 100.0 0.1" />
+    <!-- user sensors for ComVel XY -->
+    <user name="ComVel XY" dim="2" user="6 20 0.0 100.0 0.1" />
 
     <framepos name="trace0" objtype="body" objname="torso"/>
+    <framepos name="trace1" objtype="body" objname="board-center"/>
+
+    <!-- sites for tracking target foot position on board -->
+    <framepos name="tracking_foot_left" objtype="site" objname="tracking[ltoe]"/>
+    <framepos name="tracking_foot_right" objtype="site" objname="tracking[rtoe]"/>
+    <framepos name="track-back-plate" objtype="site" objname="track-back-plate"/>
+    <framepos name="track-tail" objtype="site" objname="track-tail"/>
+    <framepos name="track-front-plate" objtype="site" objname="track-front-plate"/>
+    
+    <!-- sites for tracking body and board velocities -->
+    <framelinvel name="torso_subtreelinvel" objtype="body" objname="torso" />
+    <framelinvel name="skateboard_framelinvel" objtype="body" objname="skateboard"/>
 
     <framepos name="tracking_pos[pelvis]" objtype="site" objname="tracking[pelvis]" />
     <framepos name="tracking_pos[head]" objtype="site" objname="tracking[head]" />
@@ -138,5 +189,5 @@
     <framelinvel name="tracking_linvel[lhip]" objtype="site" objname="tracking[lhip]" />
     <framelinvel name="tracking_linvel[rhip]" objtype="site" objname="tracking[rhip]" />
   </sensor>
-
+  <include file="./keyframes/push.xml" />
 </mujoco>

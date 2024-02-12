@@ -459,6 +459,95 @@ std::vector<double> Pushing::ResidualFn::ComputeTrackingResidual(
   }
   return residual_to_return;
 }
+// ----- COM xy velocity should be compared to linear_velocity_global ----- //
+
+std::array<double, 2> Pushing::ResidualFn::ComputeComVelXyResidual(
+    const mjModel *model, const mjData *data) const {
+  double *linear_velocity_global =
+      mjpc::SensorByName(model, data, "skateboard_framelinvel");
+  double *com_velocity = mjpc::SensorByName(model, data, "torso_subtreelinvel");
+  double *com_difference = new double[2];
+  com_difference[0] = (linear_velocity_global[0] - com_velocity[0]);
+  com_difference[1] = (linear_velocity_global[1] - com_velocity[1]);
+
+  return {com_difference[0], com_difference[1]};
+}
+
+// compute left foot contact force
+std::array<double, 1> Pushing::ResidualFn::ComputeFootContactForceResidual(
+    const mjModel *model, const mjData *data) const {
+  // left foot contact forces, 6d force
+  int left_heel_id_ = mj_name2id(model, mjOBJ_GEOM, "foot1_left");
+  int left_toe_id_ = mj_name2id(model, mjOBJ_GEOM, "foot2_left");
+  int floor_id = mj_name2id(model, mjOBJ_GEOM, "floor");
+
+  int left_heel_contact_id = -1;  // Initialize to an invalid value
+  int left_toe_contact_id = -1;   // Initialize to an invalid value
+  int found = 0;
+
+  int board_nose_id = mj_name2id(model, mjOBJ_GEOM, "board-nose");
+  int board_tail_id = mj_name2id(model, mjOBJ_GEOM, "board-tail");
+
+  int left_foot_touch_board = 0;
+  int right_foot_ground_id = -1;
+
+  for (int i = 0; i < data->ncon; i++) {
+    std::string name = mj_id2name(model, mjOBJ_XBODY, data->contact[i].geom1);
+    std::string name2 = mj_id2name(model, mjOBJ_XBODY, data->contact[i].geom2);
+    // print contact id to name
+    if ((data->contact[i].geom1 == left_heel_id_ &&
+         data->contact[i].geom2 == floor_id) ||
+        (data->contact[i].geom2 == left_heel_id_ &&
+         data->contact[i].geom1 == floor_id)) {
+      left_toe_contact_id = i;
+      // print geom names
+      // printf("left_heel_contact_id: %s , %s\n", name.c_str(), name2.c_str());
+      found++;
+    } else if ((data->contact[i].geom1 == left_toe_id_ &&
+                data->contact[i].geom2 == floor_id) ||
+               (data->contact[i].geom2 == left_toe_id_ &&
+                data->contact[i].geom1 == floor_id)) {
+      left_heel_contact_id = i;
+      // printf("left_heel_contact_id: %s , %s\n", name.c_str(), name2.c_str());
+      found++;
+    }
+
+    if (found == 2) {
+      break;
+    }
+  }
+
+  double left_toe_contact_force[6];
+  double left_heel_contact_force[6];
+
+  mj_contactForce(model, data, left_toe_contact_id, left_toe_contact_force);
+  mj_contactForce(model, data, left_heel_contact_id, left_heel_contact_force);
+
+  // printf("left_foot_contact_force: %f , %f , %f , %f , %f , %f\n",
+  // left_foot_contact_force[0], left_foot_contact_force[1],
+  // left_foot_contact_force[2], left_foot_contact_force[3],
+  // left_foot_contact_force[4], left_foot_contact_force[5]); sum all the forces
+  double left_foot_contact_force[6];
+  mju_add3(left_foot_contact_force, left_toe_contact_force,
+           left_heel_contact_force);
+
+  double force_abs_sum =
+      mju_abs(left_foot_contact_force[0]) +
+      mju_abs(left_foot_contact_force[1]) +
+      mju_abs(
+          left_foot_contact_force[2]);  //+ mju_abs(left_foot_contact_force[2]);
+  // check if mocap_pos_0 of left foot is near z = 0
+  int mocap_body_id_ltoe = mj_name2id(model, mjOBJ_BODY, "mocap[ltoe]");
+  int body_mocapid_ltoe = model->body_mocapid[mocap_body_id_ltoe];
+  double should_add_force =
+      (data->mocap_pos[3 * body_mocapid_ltoe + 2] <= 0.05);
+  // Applying a sigmoid function to map input to a value between 0 and 1
+
+  double left_foot_contact_force_error =
+      (1.0 / (1.0 + std::exp((force_abs_sum - 500.0) / 80.0))) *
+      should_add_force;
+  return {left_foot_contact_force_error};
+}
 
 /**
  * Humanoid foot positions residual.
@@ -629,6 +718,16 @@ void Pushing::ResidualFn::Residual(const mjModel *model, const mjData *data,
            board_velocity_residual.size());
   counter += board_velocity_residual.size();
 
+  auto foot_contact_force_residual =
+      ComputeFootContactForceResidual(model, data);
+  mju_copy(residual + counter, foot_contact_force_residual.data(),
+           foot_contact_force_residual.size());
+  counter += foot_contact_force_residual.size();
+
+  auto com_vel_xy_residual = ComputeComVelXyResidual(model, data);
+  mju_copy(residual + counter, com_vel_xy_residual.data(),
+           com_vel_xy_residual.size());
+  counter += com_vel_xy_residual.size();
   // TODO(eliasmikkola): fill missing skateboard residuals
 
   CheckSensorDim(model, counter);

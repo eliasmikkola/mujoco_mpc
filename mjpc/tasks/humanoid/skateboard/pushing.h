@@ -70,6 +70,10 @@ class Pushing : public Task {
                                                       const mjData* data) const;
     std::array<double, 3> ComputeBoardVelocityResidual(
         const mjModel* model, const mjData* data) const;
+    std::array<double, 1> ComputeFootContactForceResidual(
+        const mjModel* model, const mjData* data) const;
+    std::array<double, 2> ComputeComVelXyResidual(const mjModel* model,
+                                                  const mjData* data) const;
   };
 
   Pushing() : residual_(this) {}
