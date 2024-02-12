@@ -24,15 +24,14 @@ namespace humanoid {
 
 class Pushing : public Task {
  public:
+  std::string Name() const override;
+  std::string XmlPath() const override;
   class ResidualFn : public mjpc::BaseResidualFn {
    public:
-    explicit ResidualFn(const Pushing* task, int current_mode = 0,
-                        double reference_time = 0)
-        : mjpc::BaseResidualFn(task),
-          current_mode_(current_mode),
-          reference_time_(reference_time) {}
+    explicit ResidualFn(const Pushing* task) : mjpc::BaseResidualFn(task) {}
+    ResidualFn(const ResidualFn&) = default;
 
-    // -------- Residuals for humanoid skateboard pushing task --------
+    // ------- Residuals for humanoid skateboard pushing task --------
     //   Number of residuals:
     //     Residual (0): Joint vel: minimise joint velocity
     //     Residual (1): Control: minimise control
@@ -47,8 +46,30 @@ class Pushing : public Task {
 
    private:
     friend class Pushing;
-    int current_mode_;
-    double reference_time_;
+    int current_mode_ = 0;
+    double reference_time_ = 0;
+
+    //  ============  states updated in Transition()  ============
+    // std::array<mjtNum, 3> skateboard_position_ = {0, 0, 0};
+    // std::array<mjtNum, 2> skateboard_heading_ = {0, 0};
+    // std::array<mjtNum, 2> goal_position_ = {0, 0};
+
+    //  ============  constants, computed in Reset()  ============
+    int goal_body_id_ = -1;
+    int goal_body_mocap_id_ = -1;
+    int goal_geom_id_ = -1;
+    int skateboard_body_id_ = -1;
+    int skateboard_xbody_id_ = -1;
+
+    //  ===================  helper functions  ===================
+    std::vector<double> ComputeTrackingResidual(const mjModel* model,
+                                                const mjData* data) const;
+    std::array<double, 6> ComputeFootPositionsResidual(
+        const mjModel* model, const mjData* data) const;
+    std::array<double, 2> ComputeBoardHeadingResidual(const mjModel* model,
+                                                      const mjData* data) const;
+    std::array<double, 3> ComputeBoardVelocityResidual(
+        const mjModel* model, const mjData* data) const;
   };
 
   Pushing() : residual_(this) {}
@@ -60,19 +81,21 @@ class Pushing : public Task {
   // ---------------------------------------------------------------------------
   void TransitionLocked(mjModel* model, mjData* data) override;
 
-  std::string Name() const override;
-  std::string XmlPath() const override;
+  // call base-class Reset, save task-related ids
+  void ResetLocked(const mjModel* model) override;
+
+  // draw task-related geometry in the scene
+  void ModifyScene(const mjModel* model, const mjData* data,
+                   mjvScene* scene) const override;
 
  protected:
   std::unique_ptr<mjpc::ResidualFn> ResidualLocked() const override {
-    return std::make_unique<ResidualFn>(this, residual_.current_mode_,
-                                        residual_.reference_time_);
+    return std::make_unique<ResidualFn>(residual_);
   }
   ResidualFn* InternalResidual() override { return &residual_; }
 
  private:
-  // int current_mode_;
-  // double reference_time_;
+  friend class ResidualFn;
   ResidualFn residual_;
 };
 
